@@ -73,6 +73,17 @@ data offset viewport =
             , x = 25 + toFloat offset.x
             , y = 25 + toFloat offset.y
             }
+        , Polygon
+            { color = "yellow"
+            , path =
+                [ ( 100, 90 )
+                , ( 130, 45 )
+                , ( 180, 45 )
+                , ( 210, 90 )
+                , ( 180, 135 )
+                , ( 130, 135 )
+                ]
+            }
         ]
 
 

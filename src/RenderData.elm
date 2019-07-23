@@ -18,6 +18,7 @@ type alias Viewport =
 
 type Drawable
     = Rectangle RectangleData
+    | Polygon PolygonData
     | Image ImageData
 
 
@@ -34,6 +35,12 @@ type alias RectangleData =
     , y : Float
     , width : Float
     , height : Float
+    }
+
+
+type alias PolygonData =
+    { color : String
+    , path : List ( Float, Float )
     }
 
 
@@ -57,15 +64,19 @@ viewportCodec =
 drawableCodec : Codec Drawable
 drawableCodec =
     Codec.custom
-        (\fRectangle fImage value ->
+        (\fRectangle fPolygon fImage value ->
             case value of
                 Rectangle data ->
                     fRectangle data
+
+                Polygon data ->
+                    fPolygon data
 
                 Image data ->
                     fImage data
         )
         |> Codec.variant1 "rectangle" Rectangle rectangleDataCodec
+        |> Codec.variant1 "polygon" Polygon polygonDataCodec
         |> Codec.variant1 "image" Image imageDataCodec
         |> Codec.buildCustom
 
@@ -78,6 +89,14 @@ rectangleDataCodec =
         |> Codec.field "y" .y Codec.float
         |> Codec.field "width" .width Codec.float
         |> Codec.field "height" .height Codec.float
+        |> Codec.buildObject
+
+
+polygonDataCodec : Codec PolygonData
+polygonDataCodec =
+    Codec.object PolygonData
+        |> Codec.field "color" .color Codec.string
+        |> Codec.field "path" .path (Codec.list (Codec.tuple Codec.float Codec.float))
         |> Codec.buildObject
 
 
