@@ -1,0 +1,11 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+#canvas {
+  position: fixed;
+  overflow: hidden;
+}
+#app {
+  display: none;
+}
