@@ -251,7 +251,7 @@ updatePosition : Float -> InputState -> Position -> Position
 updatePosition ms input position =
     let
         speed =
-            1 * ms
+            0.5 * ms
     in
     { position
         | x = position.x + (xFrom input.x * speed)
