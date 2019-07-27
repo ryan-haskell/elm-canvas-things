@@ -420,4 +420,4 @@ keydownDecoder msg =
 
 view : Model -> Html msg
 view model =
-    text ""
+    text "Use WASD to move around!"
