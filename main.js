@@ -85,13 +85,13 @@ function touchSupport (callback) {
   const init = (event) => event ? position(event) : { x: 0, y: 0 }
   const endTouch = _ => {
     callback({ x: 0, y: 0 })
-    return false
+    return true
   }
   
   let model = init()
   el.addEventListener("touchstart", (event) => {
     model = init(event)
-    return false
+    return true
   }, false)
   el.addEventListener("touchend", endTouch, false)
   el.addEventListener("touchcancel", endTouch, false)
@@ -105,7 +105,7 @@ function touchSupport (callback) {
       y: y / max * (point.y > model.y ? 1 : -1)
     }
     callback(normalized)
-    return false
+    return true
   }, false)
 }
 touchSupport(app.ports.incoming.send)
