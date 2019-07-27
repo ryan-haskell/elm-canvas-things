@@ -1,6 +1,8 @@
 # elm-canvas-things
 > tryna see how i can use elm with the canvas api.
 
+![Screenshot](./screenshot.png)
+
 ## overview
 
 the html5 canvas api isn't built into elm 0.19, which isnt a problem. elm has [ports](https://guide.elm-lang.org/interop/ports.html) for sending messages to javascript.
