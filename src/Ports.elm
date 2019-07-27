@@ -1,7 +1,10 @@
-port module Ports exposing (render, withStorage)
+port module Ports exposing (onTouchEvent, render)
 
 import Codec exposing (Codec, Value)
 import RenderData exposing (RenderData)
+
+
+port incoming : ({ x : Float, y : Float } -> msg) -> Sub msg
 
 
 port outgoing : OutgoingMsg -> Cmd msg
@@ -14,37 +17,18 @@ type alias OutgoingMsg =
 
 
 
+-- TOUCH SUPPORT
+
+
+onTouchEvent : ({ x : Float, y : Float } -> msg) -> Sub msg
+onTouchEvent =
+    incoming
+
+
+
 -- CANVAS RENDERING
 
 
 render : RenderData -> Cmd msg
 render =
     Codec.encoder RenderData.codec >> OutgoingMsg "RENDER" >> outgoing
-
-
-
--- LOCAL STORAGE
-
-
-store : Value -> OutgoingMsg
-store =
-    OutgoingMsg "STORE"
-
-
-withStorage :
-    (model -> Value)
-    -> (msg -> model -> ( model, Cmd msg ))
-    -> msg
-    -> model
-    -> ( model, Cmd msg )
-withStorage encode update msg model =
-    let
-        ( model_, cmd_ ) =
-            update msg model
-    in
-    ( model_
-    , Cmd.batch
-        [ outgoing (store (encode model_))
-        , cmd_
-        ]
-    )

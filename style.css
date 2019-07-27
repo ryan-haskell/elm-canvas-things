@@ -19,4 +19,6 @@ html, body {
   font-family: monospace;
   bottom: 2rem;
   left: 2rem;
+  box-sizing: border-box;
+  max-width: calc(100% - 4rem);
 }

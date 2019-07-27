@@ -40,6 +40,7 @@ type Msg
     = SetViewport Viewport
     | KeyDown Key
     | KeyUp Key
+    | OnTouchEvent Position
     | OnAnimationFrame Float
 
 
@@ -146,7 +147,7 @@ playerData viewport player =
 
 sizeFor : Viewport -> Float
 sizeFor { width, height } =
-    min (toFloat width / dimensions.cols)
+    max (toFloat width / dimensions.cols)
         (toFloat height / dimensions.rows)
 
 
@@ -283,8 +284,40 @@ update msg model =
             , Cmd.none
             )
 
+        OnTouchEvent position ->
+            ( { model | input = inputFromTouch position }
+            , Cmd.none
+            )
+
         OnAnimationFrame ms ->
             render model ms
+
+
+inputFromTouch : Position -> InputState
+inputFromTouch { x, y } =
+    let
+        threshold =
+            0.5
+    in
+    { x =
+        if x < -1 * threshold then
+            Just Left
+
+        else if x > threshold then
+            Just Right
+
+        else
+            Nothing
+    , y =
+        if y < -1 * threshold then
+            Just Up
+
+        else if y > threshold then
+            Just Down
+
+        else
+            Nothing
+    }
 
 
 render : Model -> Float -> ( Model, Cmd Msg )
@@ -384,6 +417,7 @@ subscriptions model =
         , Browser.Events.onKeyDown (keydownDecoder KeyDown)
         , Browser.Events.onKeyUp (keydownDecoder KeyUp)
         , Browser.Events.onAnimationFrameDelta OnAnimationFrame
+        , Ports.onTouchEvent OnTouchEvent
         ]
 
 
@@ -420,4 +454,4 @@ keydownDecoder msg =
 
 view : Model -> Html msg
 view model =
-    text "Use WASD to move around!"
+    text "Use WASD or touch contols to move around!"

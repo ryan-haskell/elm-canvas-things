@@ -78,6 +78,31 @@ const draw = ({ size: { width, height }, background, items }) => {
   })
 }
 
+// Touch controls because keyboards are not on phones :hmm:
+function touchSupport (callback) {
+  const el = canvas
+  const position = ({ touches }) => ({ x: touches[0].screenX, y: touches[0].screenY })
+  const init = (event) => event ? position(event) : { x: 0, y: 0 }
+  
+  let model = init()
+  el.addEventListener("touchstart", (event) => { model = init(event) }, false)
+  el.addEventListener("touchend", _ => callback({ x: 0, y: 0 }), false)
+  el.addEventListener("touchcancel", _ => callback({ x: 0, y: 0 }), false)
+  el.addEventListener("touchmove", (event) => {
+    const point = position(event)
+    const x = Math.abs(point.x - model.x)
+    const y = Math.abs(point.y - model.y)
+    const max = Math.max(x, y)
+    const normalized = {
+      x: x / max * (point.x > model.x ? 1 : -1),
+      y: y / max * (point.y > model.y ? 1 : -1)
+    }
+    callback(normalized)
+  }, false)
+}
+touchSupport(app.ports.incoming.send)
+
+
 // An example of what Elm would send
 app.ports.outgoing.subscribe(({ action, payload }) => {
   switch (action) {
