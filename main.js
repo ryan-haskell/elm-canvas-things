@@ -35,12 +35,13 @@ const images = {
 // Canvas API helper
 const renderWith = (ctx) => (images) => ({
   image: ({ url, x, y, width, height, sprite = {}}) => {
+    ctx.imageSmoothingEnabled = false
     ctx.drawImage(...[
       images[url],
-      x, y,
-      width, height,
       sprite.x, sprite.y,
-      sprite.width, sprite.height
+      sprite.width, sprite.height,
+      x, y,
+      width, height
     ].filter(a => a !== undefined))
   },
   rectangle: ({ x, y, width, height, color }) => {

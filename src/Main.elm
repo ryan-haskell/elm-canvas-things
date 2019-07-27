@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import Array exposing (Array)
 import Browser
 import Browser.Dom exposing (..)
 import Browser.Events
@@ -17,6 +18,7 @@ type alias Flags =
 
 type alias Model =
     { position : Position
+    , player : Player
     , input : InputState
     , viewport : Maybe Viewport
     }
@@ -59,6 +61,7 @@ init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( Model
         { x = 0, y = 0 }
+        { direction = Right, status = Idle }
         { x = Nothing, y = Nothing }
         Nothing
     , Browser.Dom.getViewport
@@ -73,12 +76,72 @@ dimensions =
     }
 
 
-data : { x : Float, y : Float } -> Viewport -> RenderData
-data position viewport =
+data : Player -> { x : Float, y : Float } -> Viewport -> RenderData
+data player position viewport =
     RenderData
         viewport
         "#333"
-        (hexGrid (sizeFor viewport) dimensions position)
+        (hexGrid
+            (sizeFor viewport / 1.5)
+            dimensions
+            position
+            ++ [ playerData viewport player ]
+        )
+
+
+type alias Player =
+    { direction : DirectionX
+    , status : PlayerState
+    }
+
+
+animationFrame : Player -> Int
+animationFrame player =
+    case player.status of
+        Running frame _ ->
+            frame
+
+        Idle ->
+            0
+
+
+playerRunAnimation : Array Int
+playerRunAnimation =
+    -- Should have 60 elements
+    Array.fromList <|
+        List.concat
+            [ List.repeat 6 0
+            , List.repeat 9 1
+            , List.repeat 6 0
+            , List.repeat 9 2
+            , List.repeat 6 0
+            , List.repeat 9 1
+            , List.repeat 6 0
+            , List.repeat 9 2
+            ]
+
+
+playerData : Viewport -> Player -> Drawable
+playerData viewport player =
+    SpritesheetImage
+        { url = "/public/running-dood.png"
+        , x = toFloat viewport.width / 2 - (sizeFor viewport / 2)
+        , y = toFloat viewport.height / 2 - (sizeFor viewport / 2)
+        , width = sizeFor viewport
+        , height = sizeFor viewport
+        , subImage =
+            { x = (Array.get (animationFrame player) playerRunAnimation |> Maybe.map toFloat |> Maybe.withDefault 0) * 16
+            , y =
+                case player.direction of
+                    Left ->
+                        16
+
+                    Right ->
+                        0
+            , width = 16
+            , height = 16
+            }
+        }
 
 
 sizeFor : Viewport -> Float
@@ -122,9 +185,9 @@ hexGrid size { cols, rows } { x, y } =
                         )
                         "#0c6"
                 )
-                (List.range 0 (cols - 1))
+                (List.range 0 (cols * 2 - 1))
         )
-        (List.range 0 (rows - 1))
+        (List.range 0 (rows * 2 - 1))
         |> List.concat
 
 
@@ -164,19 +227,19 @@ type alias InputState =
     }
 
 
-type PlayerAction
-    = MovingIn ( Maybe DirectionX, Maybe DirectionY )
-    | JustHangingOutIGuessIdkMaybeHesLazyOrSomething
+type PlayerState
+    = Running Int ( Maybe DirectionX, Maybe DirectionY )
+    | Idle
 
 
-actionFromInput : InputState -> PlayerAction
-actionFromInput input =
+actionFromInput : InputState -> Player -> PlayerState
+actionFromInput input player =
     case ( input.x, input.y ) of
         ( Nothing, Nothing ) ->
-            JustHangingOutIGuessIdkMaybeHesLazyOrSomething
+            Idle
 
         ( x, y ) ->
-            MovingIn ( x, y )
+            Running (modBy 60 <| animationFrame player + 1) ( x, y )
 
 
 type Key
@@ -184,6 +247,7 @@ type Key
     | ArrowLeft
     | ArrowRight
     | ArrowDown
+    | Space
 
 
 type DirectionX
@@ -204,10 +268,15 @@ update msg model =
             , Cmd.none
             )
 
-        KeyUp key ->
-            ( { model | input = updateKey False key model.input }
-            , Cmd.none
-            )
+        KeyUp datKey ->
+            case datKey of
+                Space ->
+                    render model 16
+
+                key ->
+                    ( { model | input = updateKey False key model.input }
+                    , Cmd.none
+                    )
 
         SetViewport viewport ->
             ( { model | viewport = Just viewport }
@@ -215,11 +284,27 @@ update msg model =
             )
 
         OnAnimationFrame ms ->
-            ( { model | position = updatePosition ms model.input model.position }
-            , model.viewport
-                |> Maybe.map (data model.position >> Ports.render)
-                |> Maybe.withDefault Cmd.none
-            )
+            render model ms
+
+
+render : Model -> Float -> ( Model, Cmd Msg )
+render model ms =
+    ( { model
+        | position = updatePosition ms model.input model.position
+        , player = updatePlayer model.input model.player
+      }
+    , model.viewport
+        |> Maybe.map (data model.player model.position >> Ports.render)
+        |> Maybe.withDefault Cmd.none
+    )
+
+
+updatePlayer : InputState -> Player -> Player
+updatePlayer input player =
+    { player
+        | direction = input.x |> Maybe.withDefault player.direction
+        , status = actionFromInput input player
+    }
 
 
 valueFor : Bool -> a -> Maybe a
@@ -246,12 +331,15 @@ updateKey wasPressed key input =
         ArrowRight ->
             { input | x = valueFor wasPressed Right }
 
+        Space ->
+            input
+
 
 updatePosition : Float -> InputState -> Position -> Position
 updatePosition ms input position =
     let
         speed =
-            1 * ms
+            0.5 * ms
     in
     { position
         | x = position.x + (xFrom input.x * speed)
@@ -316,6 +404,9 @@ keydownDecoder msg =
 
                     "d" ->
                         D.succeed ArrowRight
+
+                    " " ->
+                        D.succeed Space
 
                     _ ->
                         D.fail ""

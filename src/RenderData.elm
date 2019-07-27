@@ -20,12 +20,31 @@ type Drawable
     = Rectangle RectangleData
     | Polygon PolygonData
     | Image ImageData
+    | SpritesheetImage SpritesheetImageData
 
 
 type alias ImageData =
     { url : String
     , x : Float
     , y : Float
+    }
+
+
+type alias SpritesheetImageData =
+    { url : String
+    , x : Float
+    , y : Float
+    , width : Float
+    , height : Float
+    , subImage : SubImageData
+    }
+
+
+type alias SubImageData =
+    { x : Float
+    , y : Float
+    , width : Float
+    , height : Float
     }
 
 
@@ -64,7 +83,7 @@ viewportCodec =
 drawableCodec : Codec Drawable
 drawableCodec =
     Codec.custom
-        (\fRectangle fPolygon fImage value ->
+        (\fRectangle fPolygon fImage fSpritesheetImage value ->
             case value of
                 Rectangle data ->
                     fRectangle data
@@ -74,10 +93,14 @@ drawableCodec =
 
                 Image data ->
                     fImage data
+
+                SpritesheetImage data ->
+                    fSpritesheetImage data
         )
         |> Codec.variant1 "rectangle" Rectangle rectangleDataCodec
         |> Codec.variant1 "polygon" Polygon polygonDataCodec
         |> Codec.variant1 "image" Image imageDataCodec
+        |> Codec.variant1 "image" SpritesheetImage spritesheetImageDataCodec
         |> Codec.buildCustom
 
 
@@ -106,4 +129,26 @@ imageDataCodec =
         |> Codec.field "url" .url Codec.string
         |> Codec.field "x" .x Codec.float
         |> Codec.field "y" .y Codec.float
+        |> Codec.buildObject
+
+
+spritesheetImageDataCodec : Codec SpritesheetImageData
+spritesheetImageDataCodec =
+    Codec.object SpritesheetImageData
+        |> Codec.field "url" .url Codec.string
+        |> Codec.field "x" .x Codec.float
+        |> Codec.field "y" .y Codec.float
+        |> Codec.field "width" .width Codec.float
+        |> Codec.field "height" .height Codec.float
+        |> Codec.field "sprite" .subImage subImageDataCodec
+        |> Codec.buildObject
+
+
+subImageDataCodec : Codec SubImageData
+subImageDataCodec =
+    Codec.object SubImageData
+        |> Codec.field "x" .x Codec.float
+        |> Codec.field "y" .y Codec.float
+        |> Codec.field "width" .width Codec.float
+        |> Codec.field "height" .height Codec.float
         |> Codec.buildObject
