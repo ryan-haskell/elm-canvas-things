@@ -186,9 +186,9 @@ hexGrid size { cols, rows } { x, y } =
                         )
                         "#0c6"
                 )
-                (List.range 0 (cols * 2 - 1))
+                (List.range 0 (cols - 1))
         )
-        (List.range 0 (rows * 2 - 1))
+        (List.range 0 (rows - 1))
         |> List.concat
 
 
@@ -272,7 +272,9 @@ update msg model =
         KeyUp datKey ->
             case datKey of
                 Space ->
-                    render model 16
+                    model.viewport
+                        |> Maybe.map (\viewport -> render viewport model 16)
+                        |> Maybe.withDefault ( model, Cmd.none )
 
                 key ->
                     ( { model | input = updateKey False key model.input }
@@ -290,7 +292,9 @@ update msg model =
             )
 
         OnAnimationFrame ms ->
-            render model ms
+            model.viewport
+                |> Maybe.map (\viewport -> render viewport model ms)
+                |> Maybe.withDefault ( model, Cmd.none )
 
 
 inputFromTouch : Position -> InputState
@@ -320,10 +324,10 @@ inputFromTouch { x, y } =
     }
 
 
-render : Model -> Float -> ( Model, Cmd Msg )
-render model ms =
+render : Viewport -> Model -> Float -> ( Model, Cmd Msg )
+render viewport model ms =
     ( { model
-        | position = updatePosition ms model.input model.position
+        | position = updatePosition (sizeFor viewport) ms model.input model.position
         , player = updatePlayer model.input model.player
       }
     , model.viewport
@@ -368,11 +372,11 @@ updateKey wasPressed key input =
             input
 
 
-updatePosition : Float -> InputState -> Position -> Position
-updatePosition ms input position =
+updatePosition : Float -> Float -> InputState -> Position -> Position
+updatePosition tileSize ms input position =
     let
         speed =
-            0.5 * ms
+            ms * tileSize / 250
     in
     { position
         | x = position.x + (xFrom input.x * speed)
