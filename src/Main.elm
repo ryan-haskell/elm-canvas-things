@@ -5,11 +5,14 @@ import Browser
 import Browser.Dom exposing (..)
 import Browser.Events
 import Html exposing (..)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (style, value)
+import Html.Events as Events
 import Json.Decode as D exposing (Decoder)
 import Ports
+import Process
 import RenderData exposing (Drawable(..), RenderData)
 import Task
+import World exposing (World)
 
 
 type alias Flags =
@@ -17,7 +20,9 @@ type alias Flags =
 
 
 type alias Model =
-    { position : Position
+    { seed : String
+    , world : Maybe World
+    , position : Position
     , player : Player
     , input : InputState
     , viewport : Maybe Viewport
@@ -38,6 +43,8 @@ type alias Viewport =
 
 type Msg
     = SetViewport Viewport
+    | UpdateSeed String
+    | GenerateWorld String
     | KeyDown Key
     | KeyUp Key
     | OnTouchEvent Position
@@ -58,32 +65,58 @@ main =
 -- INIT
 
 
+worldFromSeed : String -> World
+worldFromSeed =
+    String.toList
+        >> List.map Char.toCode
+        >> List.sum
+        >> (\seed -> World.init { seed = seed, size = worldSize })
+
+
 init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( Model
+        "jangle"
+        Nothing
         { x = 0, y = 0 }
         { direction = Right, status = Idle }
         { x = Nothing, y = Nothing }
         Nothing
-    , Browser.Dom.getViewport
-        |> Task.map toViewport
-        |> Task.perform SetViewport
+    , Cmd.batch
+        [ Browser.Dom.getViewport
+            |> Task.map toViewport
+            |> Task.perform SetViewport
+        , cmd (GenerateWorld "jangle")
+        ]
     )
 
 
+cmd : msg -> Cmd msg
+cmd msg =
+    Process.sleep 500
+        |> Task.perform (\_ -> msg)
+
+
 dimensions =
-    { cols = 16
-    , rows = 9
+    { cols = 24
+    , rows = 12
     }
 
 
-data : Player -> { x : Float, y : Float } -> Viewport -> RenderData
-data player position viewport =
+worldSize =
+    64
+
+
+data : World -> Player -> { x : Float, y : Float } -> Viewport -> RenderData
+data world player position viewport =
     RenderData
         viewport
         "#333"
         (hexGrid
-            { cols = 100, rows = 50 }
+            world
+            { cols = worldSize
+            , rows = worldSize
+            }
             (sizeFor viewport)
             dimensions
             position
@@ -162,8 +195,8 @@ type alias Dimensions =
 -- same for now, lel.
 
 
-hexGrid : Dimensions -> Float -> Dimensions -> { x : Float, y : Float } -> List Drawable
-hexGrid world size { cols, rows } { x, y } =
+hexGrid : World -> Dimensions -> Float -> Dimensions -> { x : Float, y : Float } -> List Drawable
+hexGrid world worldDimensions size { cols, rows } { x, y } =
     let
         width =
             2 * size
@@ -203,29 +236,22 @@ hexGrid world size { cols, rows } { x, y } =
                                     toFloat yIndex * 1 * height + (0.5 * height)
                                   )
                     in
-                    [ hexagon
+                    hexagon
                         { x = xPos
                         , y = yPos
                         , width = width
                         , height = height
                         }
-                        (if xIndex == 0 || yIndex == 0 || xIndex == cols - 1 || yIndex == rows - 1 then
-                            "#396"
-
-                         else
-                            "#0c6"
+                        (World.get
+                            ( modBy worldSize xIndex
+                            , modBy worldSize yIndex
+                            )
+                            world
                         )
-                    , Text
-                        { text = [ "(", String.fromInt (modBy world.cols xIndex), ", ", String.fromInt (modBy world.rows yIndex), ")" ] |> String.join ""
-                        , x = xPos + size / 1.1
-                        , y = yPos + size / 1.1
-                        }
-                    ]
                 )
                 (List.range leftX rightX)
         )
         (List.range leftY rightY)
-        |> List.concat
         |> List.concat
 
 
@@ -323,12 +349,21 @@ type DirectionY
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        KeyDown key ->
-            ( { model | input = updateKey True key model.input }
-            , Cmd.none
+        UpdateSeed seed ->
+            ( { model | seed = seed, world = Nothing }
+            , cmd (GenerateWorld seed)
             )
 
-        KeyUp datKey ->
+        GenerateWorld seed ->
+            if model.seed == seed then
+                ( { model | world = Just (worldFromSeed seed) }
+                , Cmd.none
+                )
+
+            else
+                ( model, Cmd.none )
+
+        KeyDown datKey ->
             case datKey of
                 Space ->
                     model.viewport
@@ -336,9 +371,14 @@ update msg model =
                         |> Maybe.withDefault ( model, Cmd.none )
 
                 key ->
-                    ( { model | input = updateKey False key model.input }
+                    ( { model | input = updateKey True key model.input }
                     , Cmd.none
                     )
+
+        KeyUp key ->
+            ( { model | input = updateKey False key model.input }
+            , Cmd.none
+            )
 
         SetViewport viewport ->
             ( { model | viewport = Just viewport }
@@ -389,9 +429,14 @@ render viewport model ms =
         | position = updatePosition (sizeFor viewport) ms model.input model.position
         , player = updatePlayer model.input model.player
       }
-    , model.viewport
-        |> Maybe.map (data model.player model.position >> Ports.render)
-        |> Maybe.withDefault Cmd.none
+    , case model.world of
+        Nothing ->
+            Cmd.none
+
+        Just world ->
+            model.viewport
+                |> Maybe.map (data world model.player model.position >> Ports.render)
+                |> Maybe.withDefault Cmd.none
     )
 
 
@@ -515,6 +560,9 @@ keydownDecoder msg =
 -- VIEW
 
 
-view : Model -> Html msg
+view : Model -> Html Msg
 view model =
-    text "Use WASD or touch contols to move around!"
+    div []
+        [ div [] [ text (model.world |> Maybe.map (always "Use WASD or touch contols to move around!") |> Maybe.withDefault "Loading...") ]
+        , div [] [ span [] [ text "Seed: " ], input [ value model.seed, Events.onInput UpdateSeed ] [] ]
+        ]
