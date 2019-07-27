@@ -17,10 +17,18 @@ type alias Viewport =
 
 
 type Drawable
-    = Rectangle RectangleData
+    = Text TextData
+    | Rectangle RectangleData
     | Polygon PolygonData
     | Image ImageData
     | SpritesheetImage SpritesheetImageData
+
+
+type alias TextData =
+    { text : String
+    , x : Float
+    , y : Float
+    }
 
 
 type alias ImageData =
@@ -83,8 +91,11 @@ viewportCodec =
 drawableCodec : Codec Drawable
 drawableCodec =
     Codec.custom
-        (\fRectangle fPolygon fImage fSpritesheetImage value ->
+        (\fText fRectangle fPolygon fImage fSpritesheetImage value ->
             case value of
+                Text data ->
+                    fText data
+
                 Rectangle data ->
                     fRectangle data
 
@@ -97,11 +108,21 @@ drawableCodec =
                 SpritesheetImage data ->
                     fSpritesheetImage data
         )
+        |> Codec.variant1 "text" Text textDataCodec
         |> Codec.variant1 "rectangle" Rectangle rectangleDataCodec
         |> Codec.variant1 "polygon" Polygon polygonDataCodec
         |> Codec.variant1 "image" Image imageDataCodec
         |> Codec.variant1 "image" SpritesheetImage spritesheetImageDataCodec
         |> Codec.buildCustom
+
+
+textDataCodec : Codec TextData
+textDataCodec =
+    Codec.object TextData
+        |> Codec.field "text" .text Codec.string
+        |> Codec.field "x" .x Codec.float
+        |> Codec.field "y" .y Codec.float
+        |> Codec.buildObject
 
 
 rectangleDataCodec : Codec RectangleData

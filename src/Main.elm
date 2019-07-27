@@ -83,7 +83,8 @@ data player position viewport =
         viewport
         "#333"
         (hexGrid
-            (sizeFor viewport / 1.5)
+            { cols = 100, rows = 50 }
+            (sizeFor viewport)
             dimensions
             position
             ++ [ playerData viewport player ]
@@ -161,48 +162,84 @@ type alias Dimensions =
 -- same for now, lel.
 
 
-hexGrid : Float -> Dimensions -> { x : Float, y : Float } -> List Drawable
-hexGrid size { cols, rows } { x, y } =
+hexGrid : Dimensions -> Float -> Dimensions -> { x : Float, y : Float } -> List Drawable
+hexGrid world size { cols, rows } { x, y } =
     let
         width =
             2 * size
 
         height =
             sqrt 3 * size
+
+        buffer =
+            2
+
+        ( playerXIndex, playerYIndex ) =
+            ( floor (x / size / 1.5)
+            , floor (y / height)
+            )
+
+        ( leftX, rightX ) =
+            ( playerXIndex - buffer, playerXIndex + cols - 1 + buffer )
+
+        ( leftY, rightY ) =
+            ( playerYIndex - buffer, playerYIndex + rows - 1 + buffer )
     in
+    -- TODO: Build in reverse with foldl and ::
     List.map
         (\yIndex ->
             List.map
                 (\xIndex ->
-                    hexagon ( width, height )
-                        ( (-1 * x) + (toFloat xIndex * 0.75 * width)
-                        , (-1 * y)
-                            + (if modBy 2 xIndex == 0 then
-                                toFloat yIndex * 1 * height
+                    let
+                        xPos =
+                            (-1 * x) + (toFloat xIndex * 0.75 * width)
 
-                               else
-                                toFloat yIndex * 1 * height + (0.5 * height)
-                              )
+                        yPos =
+                            (-1 * y)
+                                + (if modBy 2 xIndex == 0 then
+                                    toFloat yIndex * 1 * height
+
+                                   else
+                                    toFloat yIndex * 1 * height + (0.5 * height)
+                                  )
+                    in
+                    [ hexagon
+                        { x = xPos
+                        , y = yPos
+                        , width = width
+                        , height = height
+                        }
+                        (if xIndex == 0 || yIndex == 0 || xIndex == cols - 1 || yIndex == rows - 1 then
+                            "#396"
+
+                         else
+                            "#0c6"
                         )
-                        "#0c6"
+                    , Text
+                        { text = [ "(", String.fromInt (modBy world.cols xIndex), ", ", String.fromInt (modBy world.rows yIndex), ")" ] |> String.join ""
+                        , x = xPos + size / 1.1
+                        , y = yPos + size / 1.1
+                        }
+                    ]
                 )
-                (List.range 0 (cols - 1))
+                (List.range leftX rightX)
         )
-        (List.range 0 (rows - 1))
+        (List.range leftY rightY)
+        |> List.concat
         |> List.concat
 
 
-hexagon : ( Float, Float ) -> ( Float, Float ) -> String -> Drawable
-hexagon ( width, height ) ( x, y ) color =
+hexagon : { x : Float, y : Float, width : Float, height : Float } -> String -> Drawable
+hexagon { width, height, x, y } color =
     Polygon
         { color = color
         , path =
             [ ( 0, 0.5 )
-            , ( 0.25, 0 )
-            , ( 0.75, 0 )
-            , ( 1, 0.5 )
-            , ( 0.75, 1 )
-            , ( 0.25, 1 )
+            , ( 0.246, 0 )
+            , ( 0.755, 0 )
+            , ( 1.0, 0.5 )
+            , ( 0.755, 1.01 )
+            , ( 0.246, 1.01 )
             ]
                 |> List.map
                     (Tuple.mapBoth
@@ -222,6 +259,28 @@ toViewport { viewport } =
 -- UPDATE
 
 
+{-| TODO: Store this in the model, and derive the InputState from it.
+There's weird stuff happening now when you let go of WASD at the wrong time,
+because we aren't keeping track of pressed keys.
+
+type BetterInputState
+= Keyboard KeyboardState
+| Gamepad GamepadState
+| TouchDevice TouchDeviceState
+
+type alias KeyboardState =
+List Key
+
+type alias GamepadState =
+{ joystick : Position
+}
+
+type alias TouchDeviceState =
+{ dragging : Position
+}
+|
+
+-}
 type alias InputState =
     { x : Maybe DirectionX
     , y : Maybe DirectionY

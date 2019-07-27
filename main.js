@@ -33,9 +33,13 @@ const images = {
 }
 
 // Canvas API helper
-const renderWith = (ctx) => (images) => ({
+const renderWith = (ctx, images) => ({
+  text: ({ text, x, y }) => {
+    ctx.fillStyle = 'white'
+    ctx.font = '14px serif'
+    ctx.fillText(text, x, y)
+  },
   image: ({ url, x, y, width, height, sprite = {}}) => {
-    ctx.imageSmoothingEnabled = false
     ctx.drawImage(...[
       images[url],
       sprite.x, sprite.y,
@@ -72,26 +76,24 @@ const draw = ({ size: { width, height }, background, items }) => {
   canvas.width = width
   canvas.height = height
   images.prefetch(urlsFor(items)).then(images => {
-    const renderer = renderWith(canvas.getContext('2d'))(images)
+    const ctx = canvas.getContext('2d')
+    ctx.imageSmoothingEnabled = false
+    const renderer = renderWith(ctx, images)
     renderer.rectangle({ x: 0, y: 0, width, height, color: background })
     items.forEach(({ tag, args }) => renderer[tag](args[0]))
   })
 }
 
 // Touch controls because keyboards are not on phones :hmm:
-function touchSupport (callback) {
+function addTouchSupport (callback) {
   const el = canvas
   const position = ({ touches }) => ({ x: touches[0].screenX, y: touches[0].screenY })
   const init = (event) => event ? position(event) : { x: 0, y: 0 }
-  const endTouch = _ => {
-    callback({ x: 0, y: 0 })
-    return true
-  }
+  const endTouch = _ => callback({ x: 0, y: 0 })
   
   let model = init()
   el.addEventListener("touchstart", (event) => {
     model = init(event)
-    return true
   }, false)
   el.addEventListener("touchend", endTouch, false)
   el.addEventListener("touchcancel", endTouch, false)
@@ -105,15 +107,16 @@ function touchSupport (callback) {
       y: y / max * (point.y > model.y ? 1 : -1)
     }
     callback(normalized)
-    return true
   }, false)
 }
-touchSupport(app.ports.incoming.send)
 
 
-// An example of what Elm would send
+// Elm sends messages to JS
 app.ports.outgoing.subscribe(({ action, payload }) => {
   switch (action) {
     case 'RENDER': return draw(payload)
   }
 })
+
+// And JS can send messages back
+addTouchSupport(app.ports.incoming.send)
