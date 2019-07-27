@@ -563,6 +563,15 @@ keydownDecoder msg =
 view : Model -> Html Msg
 view model =
     div []
-        [ div [] [ text (model.world |> Maybe.map (always "Use WASD or touch contols to move around!") |> Maybe.withDefault "Loading...") ]
-        , div [] [ span [] [ text "Seed: " ], input [ value model.seed, Events.onInput UpdateSeed ] [] ]
+        [ div [ style "margin-bottom" "0.5rem" ]
+            [ text
+                (model.world
+                    |> Maybe.map (always "Use WASD or touch contols to move around!")
+                    |> Maybe.withDefault "Loading..."
+                )
+            ]
+        , div []
+            [ span [] [ text "Seed: " ]
+            , input [ value model.seed, Events.onInput UpdateSeed ] []
+            ]
         ]
