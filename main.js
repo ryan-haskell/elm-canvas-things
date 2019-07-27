@@ -83,11 +83,18 @@ function touchSupport (callback) {
   const el = canvas
   const position = ({ touches }) => ({ x: touches[0].screenX, y: touches[0].screenY })
   const init = (event) => event ? position(event) : { x: 0, y: 0 }
+  const endTouch = _ => {
+    callback({ x: 0, y: 0 })
+    return false
+  }
   
   let model = init()
-  el.addEventListener("touchstart", (event) => { model = init(event) }, false)
-  el.addEventListener("touchend", _ => callback({ x: 0, y: 0 }), false)
-  el.addEventListener("touchcancel", _ => callback({ x: 0, y: 0 }), false)
+  el.addEventListener("touchstart", (event) => {
+    model = init(event)
+    return false
+  }, false)
+  el.addEventListener("touchend", endTouch, false)
+  el.addEventListener("touchcancel", endTouch, false)
   el.addEventListener("touchmove", (event) => {
     const point = position(event)
     const x = Math.abs(point.x - model.x)
@@ -98,6 +105,7 @@ function touchSupport (callback) {
       y: y / max * (point.y > model.y ? 1 : -1)
     }
     callback(normalized)
+    return false
   }, false)
 }
 touchSupport(app.ports.incoming.send)
