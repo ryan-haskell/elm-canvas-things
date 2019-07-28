@@ -1,10 +1,20 @@
-port module Ports exposing (onTouchEvent, render)
+port module Ports exposing
+    ( GamepadInfo
+    , onGamepadEvent
+    , onTouchEvent
+    , render
+    , requestGamepad
+    )
 
+import Canvas exposing (Canvas)
 import Codec exposing (Codec, Value)
-import RenderData exposing (RenderData)
+import Json.Encode as Json
 
 
-port incoming : ({ x : Float, y : Float } -> msg) -> Sub msg
+port onTouch : ({ x : Float, y : Float } -> msg) -> Sub msg
+
+
+port onGamepad : (GamepadInfo -> msg) -> Sub msg
 
 
 port outgoing : OutgoingMsg -> Cmd msg
@@ -16,19 +26,44 @@ type alias OutgoingMsg =
     }
 
 
+type alias GamepadInfo =
+    { x : Float
+    , y : Float
+    , a : Bool
+    , now : String
+    }
+
+
 
 -- TOUCH SUPPORT
 
 
 onTouchEvent : ({ x : Float, y : Float } -> msg) -> Sub msg
 onTouchEvent =
-    incoming
+    onTouch
+
+
+
+-- GAMEPAD SUPPORT
+
+
+onGamepadEvent : (GamepadInfo -> msg) -> Sub msg
+onGamepadEvent =
+    onGamepad
 
 
 
 -- CANVAS RENDERING
 
 
-render : RenderData -> Cmd msg
+render : Canvas -> Cmd msg
 render =
-    Codec.encoder RenderData.codec >> OutgoingMsg "RENDER" >> outgoing
+    Codec.encoder Canvas.codec >> OutgoingMsg "RENDER" >> outgoing
+
+
+requestGamepad : Cmd msg
+requestGamepad =
+    outgoing <|
+        { action = "REQUEST_GAMEPAD"
+        , payload = Json.null
+        }

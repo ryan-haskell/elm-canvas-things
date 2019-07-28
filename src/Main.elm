@@ -4,13 +4,13 @@ import Array exposing (Array)
 import Browser
 import Browser.Dom exposing (..)
 import Browser.Events
+import Canvas exposing (Canvas, Drawable(..))
 import Html exposing (..)
 import Html.Attributes exposing (style, value)
 import Html.Events as Events
 import Json.Decode as D exposing (Decoder)
 import Ports
 import Process
-import RenderData exposing (Drawable(..), RenderData)
 import Task
 import World exposing (World)
 
@@ -48,6 +48,7 @@ type Msg
     | KeyDown Key
     | KeyUp Key
     | OnTouchEvent Position
+    | OnGamepadEvent Ports.GamepadInfo
     | OnAnimationFrame Float
 
 
@@ -86,30 +87,30 @@ init _ =
         [ Browser.Dom.getViewport
             |> Task.map toViewport
             |> Task.perform SetViewport
-        , cmd (GenerateWorld "jangle")
+        , delayCmd (GenerateWorld "jangle")
         ]
     )
 
 
-cmd : msg -> Cmd msg
-cmd msg =
-    Process.sleep 500
+delayCmd : msg -> Cmd msg
+delayCmd msg =
+    Process.sleep 1000
         |> Task.perform (\_ -> msg)
 
 
 dimensions =
-    { cols = 24
-    , rows = 12
+    { cols = 16
+    , rows = 9
     }
 
 
 worldSize =
-    64
+    24
 
 
-data : World -> Player -> { x : Float, y : Float } -> Viewport -> RenderData
+data : World -> Player -> { x : Float, y : Float } -> Viewport -> Canvas
 data world player position viewport =
-    RenderData
+    Canvas
         viewport
         "#333"
         (hexGrid
@@ -165,7 +166,12 @@ playerData viewport player =
         , width = sizeFor viewport
         , height = sizeFor viewport
         , subImage =
-            { x = (Array.get (animationFrame player) playerRunAnimation |> Maybe.map toFloat |> Maybe.withDefault 0) * 16
+            { x =
+                (Array.get (animationFrame player) playerRunAnimation
+                    |> Maybe.map toFloat
+                    |> Maybe.withDefault 0
+                )
+                    * 16
             , y =
                 case player.direction of
                     Left ->
@@ -205,7 +211,7 @@ hexGrid world worldDimensions size { cols, rows } { x, y } =
             sqrt 3 * size
 
         buffer =
-            2
+            1
 
         ( playerXIndex, playerYIndex ) =
             ( floor (x / size / 1.5)
@@ -213,10 +219,14 @@ hexGrid world worldDimensions size { cols, rows } { x, y } =
             )
 
         ( leftX, rightX ) =
-            ( playerXIndex - buffer, playerXIndex + cols - 1 + buffer )
+            ( playerXIndex - buffer
+            , playerXIndex + cols - 1 + buffer
+            )
 
         ( leftY, rightY ) =
-            ( playerYIndex - buffer, playerYIndex + rows - 1 + buffer )
+            ( playerYIndex - buffer
+            , playerYIndex + rows - 1 + buffer
+            )
     in
     -- TODO: Build in reverse with foldl and ::
     List.map
@@ -225,16 +235,16 @@ hexGrid world worldDimensions size { cols, rows } { x, y } =
                 (\xIndex ->
                     let
                         xPos =
-                            (-1 * x) + (toFloat xIndex * 0.75 * width)
+                            (toFloat xIndex * 0.75 * width) - x
 
                         yPos =
-                            (-1 * y)
-                                + (if modBy 2 xIndex == 0 then
-                                    toFloat yIndex * 1 * height
+                            (if modBy 2 xIndex == 0 then
+                                toFloat yIndex * height
 
-                                   else
-                                    toFloat yIndex * 1 * height + (0.5 * height)
-                                  )
+                             else
+                                toFloat yIndex * height + (0.5 * height)
+                            )
+                                - y
                     in
                     hexagon
                         { x = xPos
@@ -351,7 +361,7 @@ update msg model =
     case msg of
         UpdateSeed seed ->
             ( { model | seed = seed, world = Nothing }
-            , cmd (GenerateWorld seed)
+            , delayCmd (GenerateWorld seed)
             )
 
         GenerateWorld seed ->
@@ -386,8 +396,25 @@ update msg model =
             )
 
         OnTouchEvent position ->
-            ( { model | input = inputFromTouch position }
+            ( { model | input = inputFromPosition position }
             , Cmd.none
+            )
+
+        OnGamepadEvent gamepad ->
+            ( { model
+                | input = inputFromPosition gamepad
+                , seed =
+                    if gamepad.a then
+                        gamepad.now
+
+                    else
+                        model.seed
+              }
+            , if gamepad.a then
+                delayCmd (GenerateWorld gamepad.now)
+
+              else
+                Cmd.none
             )
 
         OnAnimationFrame ms ->
@@ -396,11 +423,11 @@ update msg model =
                 |> Maybe.withDefault ( model, Cmd.none )
 
 
-inputFromTouch : Position -> InputState
-inputFromTouch { x, y } =
+inputFromPosition : { a | x : Float, y : Float } -> InputState
+inputFromPosition { x, y } =
     let
         threshold =
-            0.5
+            0.7
     in
     { x =
         if x < -1 * threshold then
@@ -434,9 +461,12 @@ render viewport model ms =
             Cmd.none
 
         Just world ->
-            model.viewport
-                |> Maybe.map (data world model.player model.position >> Ports.render)
-                |> Maybe.withDefault Cmd.none
+            Cmd.batch
+                [ model.viewport
+                    |> Maybe.map (data world model.player model.position >> Ports.render)
+                    |> Maybe.withDefault Cmd.none
+                , Ports.requestGamepad
+                ]
     )
 
 
@@ -526,6 +556,7 @@ subscriptions model =
         , Browser.Events.onKeyUp (keydownDecoder KeyUp)
         , Browser.Events.onAnimationFrameDelta OnAnimationFrame
         , Ports.onTouchEvent OnTouchEvent
+        , Ports.onGamepadEvent OnGamepadEvent
         ]
 
 

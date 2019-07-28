@@ -1,9 +1,9 @@
-module RenderData exposing (Drawable(..), RenderData, codec)
+module Canvas exposing (Canvas, Drawable(..), codec)
 
 import Codec exposing (Codec, Value)
 
 
-type alias RenderData =
+type alias Canvas =
     { size : Viewport
     , background : String
     , items : List Drawable
@@ -71,9 +71,9 @@ type alias PolygonData =
     }
 
 
-codec : Codec RenderData
+codec : Codec Canvas
 codec =
-    Codec.object RenderData
+    Codec.object Canvas
         |> Codec.field "size" .size viewportCodec
         |> Codec.field "background" .background Codec.string
         |> Codec.field "items" .items (Codec.list drawableCodec)

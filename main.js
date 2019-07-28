@@ -110,13 +110,24 @@ function addTouchSupport (callback) {
   }, false)
 }
 
+// Gamepad Support
+function sendGamepad (callback) {
+  const gamepad = navigator.getGamepads()[0]
+  if (gamepad) {
+    const [ x, y ] = gamepad.axes
+    const [ button ] = gamepad.buttons
+    callback({ x, y, a: button.pressed, now: ""+Date.now() })
+  }
+}
+
 
 // Elm sends messages to JS
 app.ports.outgoing.subscribe(({ action, payload }) => {
   switch (action) {
     case 'RENDER': return draw(payload)
+    case 'REQUEST_GAMEPAD': return sendGamepad(app.ports.onGamepad.send)
   }
 })
 
 // And JS can send messages back
-addTouchSupport(app.ports.incoming.send)
+addTouchSupport(app.ports.onTouch.send)
