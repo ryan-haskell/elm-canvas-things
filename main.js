@@ -112,7 +112,7 @@ function addTouchSupport (callback) {
 
 // Gamepad Support
 function sendGamepad (callback) {
-  const gamepad = navigator.getGamepads()[0]
+  const gamepad = [...navigator.getGamepads()].filter(a => a && a.id.indexOf('GamePad-2') === -1)[0]
   if (gamepad) {
     const [ x, y ] = gamepad.axes
     const [ button ] = gamepad.buttons
