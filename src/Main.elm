@@ -597,7 +597,7 @@ view model =
         [ div [ style "margin-bottom" "0.5rem" ]
             [ text
                 (model.world
-                    |> Maybe.map (always "Use WASD or touch contols to move around!")
+                    |> Maybe.map (always "Use WASD, a controller, or touch controls to move!")
                     |> Maybe.withDefault "Loading..."
                 )
             ]
